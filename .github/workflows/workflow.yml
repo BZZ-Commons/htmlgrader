@@ -25,6 +25,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
       - name: Cache npm modules
         uses: actions/cache@v4
         with:
@@ -32,11 +37,6 @@ jobs:
           key: ${{ runner.os }}-htmlhint-cache
           restore-keys: |
             ${{ runner.os }}-htmlhint-cache
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
 
       - name: Install HTMLHint and jq
         run: |
