@@ -1,14 +1,18 @@
-name: HTMLHint Lint
+name: HTMLHint Lint (Reusable)
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      html_glob:
+        description: 'Glob pattern for HTML files to lint'
+        required: false
+        default: '**/*.html'
+        type: string
 jobs:
   run-lint:
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.lint.outputs.lint_result }}
+      table: ${{ steps.build-table.outputs.table }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -18,20 +22,30 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Install HTMLHint
-        run: npm install -g htmlhint
+      - name: Install HTMLHint and jq
+        run: |
+          npm install -g htmlhint
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Run HTMLHint and save JSON report
         id: lint
         run: |
-          htmlhint -f json "**/*.html" > lint-report.json || true
-          # Determine if there were any errors
+          htmlhint -f json "${{ inputs.html_glob }}" > lint-report.json || true
           if jq 'map(select(.messages|length>0)) | length > 0' lint-report.json; then
             echo "lint_result=failure" >> $GITHUB_OUTPUT
           else
             echo "lint_result=success" >> $GITHUB_OUTPUT
           fi
         continue-on-error: true
+
+      - name: Build Markdown table of errors
+        id: build-table
+        run: |
+          echo "|Line|Rule|Message|" > feedback.md
+          echo "|---|---|---|" >> feedback.md
+          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule)|\(.message)|"' lint-report.json >> feedback.md
+          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
+          echo "table=$table" >> $GITHUB_OUTPUT
 
       - name: Upload HTMLHint report
         uses: actions/upload-artifact@v3
@@ -42,25 +56,12 @@ jobs:
   report-to-moodle:
     needs: run-lint
     if: ${{ always() && !contains(github.actor, 'classroom') }}
-    name: Report Lint Result to Moodle
     runs-on: ubuntu-latest
     steps:
       - name: Download HTMLHint report
         uses: actions/download-artifact@v3
         with:
           name: htmlhint-report
-
-      - name: Build Markdown table of errors
-        id: build-table
-        run: |
-          # Prepare header
-          echo "|Line|Rule|Message|" > feedback.md
-          echo "|---|---|---|" >> feedback.md
-          # Parse JSON to table rows
-          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule)|\(.message)|"' lint-report.json >> feedback.md
-          # Read into variable
-          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
-          echo "table=$table" >> $GITHUB_OUTPUT
 
       - name: Update assignment in Moodle
         run: |
@@ -77,8 +78,7 @@ jobs:
             feedback="Lint erfolgreich"
           else
             points=1
-            # Use the markdown table for feedback
-            feedback="Lint meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="Lint meldet Fehler; sehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
           echo "$feedback"
 
