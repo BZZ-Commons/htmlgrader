@@ -101,10 +101,10 @@ jobs:
 
           if [ "${{ needs.run-lint.outputs.result }}" == 'success' ]; then
             points=2
-            feedback="Lint erfolgreich"
+            feedback="✅ Lint erfolgreich"
           else
             points=1
-            feedback="Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="❌ Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
           echo "$feedback"
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
