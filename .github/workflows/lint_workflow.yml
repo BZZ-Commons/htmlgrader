@@ -71,9 +71,9 @@ jobs:
           repofull=${{ github.repository }}
           parts=(${repofull//\// })
           reponame=${parts[1]}
-          template="${reponame/"-\${{ github.actor }}"/""}"
+          template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
-          token=${{ secrets.MOODLE_TOKEN2 }}
+          token=${{secrets.MOODLE_TOKEN2}}
 
           if [ "${{ needs.run-lint.outputs.result }}" == 'success' ]; then
             points=2
