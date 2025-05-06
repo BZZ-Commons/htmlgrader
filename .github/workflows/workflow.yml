@@ -31,6 +31,14 @@ jobs:
           node-version: '16'
           cache: 'npm'
 
+      - name: Cache npm download-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm/_cacache
+          key: ${{ runner.os }}-htmlhint-cache
+          restore-keys: |
+            ${{ runner.os }}-htmlhint-cache
+
       - name: Install HTMLHint and jq
         run: |
           npm install -g htmlhint
