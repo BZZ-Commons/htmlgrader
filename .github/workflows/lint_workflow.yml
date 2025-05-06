@@ -1,4 +1,7 @@
-name: HTMLHint Lint (Reusable)
+name: HTMLHint Lint
+concurrency:
+  group: 'htmlhint-${{ github.ref }}'
+  cancel-in-progress: true
 on:
   workflow_call:
     inputs:
@@ -7,15 +10,28 @@ on:
         required: false
         default: '**/*.html'
         type: string
+permissions:
+  contents: read
+  actions: write   # for caching and artifact operations
+  checks: write    # for reporting status
 jobs:
   run-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       result: ${{ steps.lint.outputs.lint_result }}
       table: ${{ steps.build-table.outputs.table }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Cache npm modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-htmlhint-cache
+          restore-keys: |
+            ${{ runner.os }}-htmlhint-cache
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -64,8 +80,9 @@ jobs:
 
   report-to-moodle:
     needs: run-lint
-    if: ${{ always() && !contains(github.actor, 'classroom') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() && !contains(github.actor, 'classroom') }}
     steps:
       - name: Download HTMLHint report
         uses: actions/download-artifact@v4
