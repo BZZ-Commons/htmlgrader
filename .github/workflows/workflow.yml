@@ -122,8 +122,8 @@ jobs:
             | tr -d '\r\n')
 
           if [[ "$status" == *success* ]]; then
-            echo "✅ Moodle update successful"
+            echo -e "[32m✅ Moodle update successful[0m"
           else
-            echo "❌ Moodle API error: '$status'" >&2
+            echo -e "[31m❌ Moodle API error: '$status'[0m" >&2
             exit 1
           fi
