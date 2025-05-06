@@ -104,7 +104,7 @@ jobs:
             feedback="Lint erfolgreich"
           else
             points=1
-            feedback="Lint meldet Fehler; sehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
           echo "$feedback"
 
