@@ -48,7 +48,7 @@ jobs:
           echo "table=$table" >> $GITHUB_OUTPUT
 
       - name: Upload HTMLHint report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: htmlhint-report
           path: lint-report.json
@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download HTMLHint report
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: htmlhint-report
 
