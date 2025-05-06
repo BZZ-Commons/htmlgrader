@@ -122,7 +122,7 @@ jobs:
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
 
-          if [[ "$status" == success ]]; then
+          if [[ "$status" == *success* ]]; then
             echo "Moodle update successful"
           else
             echo "Moodle API error: '$status'" >&2
