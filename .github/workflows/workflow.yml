@@ -108,26 +108,11 @@ jobs:
           fi
           echo "$feedback"
 
-      # Send to Moodle and capture XML response
-      response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
-      -H "Content-Type: application/x-www-form-urlencoded" \
-      --data "$assignment" \
-      --data "$user" \
-      --data "points=$points" \
-      --data "feedback=$feedback" \
-      --data "max=2" \
-      --data "externallink=${{ github.repository }}")
-      echo "$response"
-
-      # Parse XML: extract VALUE from KEY name="name"
-      status=$(echo "$response" \
-      | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
-      | tr -d '\r\n')
-
-      # Fail if status is not exactly 'success'
-      if [[ "$status" == success ]]; then
-      echo "Moodle update successful"
-      else
-      echo "Moodle API error or failure response: '$status'" >&2
-      exit 1
-      fi
+          curl -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "$assignment" \
+            --data "$user" \
+            --data "points=$points" \
+            --data "feedback=$feedback" \
+            --data "max=2" \
+            --data "externallink=${{ github.repository }}"
