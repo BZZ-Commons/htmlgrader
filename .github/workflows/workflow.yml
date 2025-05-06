@@ -107,12 +107,12 @@ jobs:
             feedback="Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
           echo "$feedback"
-
-          curl -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
+          response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data "$assignment" \
             --data "$user" \
             --data "points=$points" \
             --data "feedback=$feedback" \
             --data "max=2" \
-            --data "externallink=${{ github.repository }}"
+            --data "externallink=${{ github.repository }}")
+          echo "$response"
