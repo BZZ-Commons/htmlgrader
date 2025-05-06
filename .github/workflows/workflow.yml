@@ -54,7 +54,7 @@ jobs:
             echo "No custom config found, running default HTMLHint rules"
             htmlhint -f json "${{ inputs.html_glob }}" > lint-report.json || true
           fi
-          if jq 'map(select(.messages|length>0)) | length > 0' lint-report.json; then
+          if jq -e 'map(select(.messages|length>0)) | length > 0' lint-report.json; then
             echo "lint_result=failure" >> $GITHUB_OUTPUT
           else
             echo "lint_result=success" >> $GITHUB_OUTPUT
