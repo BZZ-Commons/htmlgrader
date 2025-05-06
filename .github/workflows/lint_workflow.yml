@@ -30,7 +30,14 @@ jobs:
       - name: Run HTMLHint and save JSON report
         id: lint
         run: |
-          htmlhint -f json "${{ inputs.html_glob }}" > lint-report.json || true
+          CONFIG_PATH=".github/linters/.htmlhintrc"
+          if [ -f "$CONFIG_PATH" ]; then
+            echo "Using custom HTMLHint config at $CONFIG_PATH"
+            htmlhint -c "$CONFIG_PATH" -f json "${{ inputs.html_glob }}" > lint-report.json || true
+          else
+            echo "No custom config found, running default HTMLHint rules"
+            htmlhint -f json "${{ inputs.html_glob }}" > lint-report.json || true
+          fi
           if jq 'map(select(.messages|length>0)) | length > 0' lint-report.json; then
             echo "lint_result=failure" >> $GITHUB_OUTPUT
           else
