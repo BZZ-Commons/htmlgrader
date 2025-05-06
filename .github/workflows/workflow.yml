@@ -106,7 +106,7 @@ jobs:
             points=1
             feedback="❌ Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
-          echo "$feedback"
+          echo "\033[32mFeedback: $feedback\033[0m"
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data "$assignment" \
@@ -122,11 +122,8 @@ jobs:
             | tr -d '\r\n')
 
           if [[ "$status" == *success* ]]; then
-            echo "✅ Moodle update successful"
             echo -e "\033[32m✅ Moodle update successful\033[0m"
           else
-            echo "❌ Moodle API error: '$status'" >&2
             echo -e "\033[31m❌ Moodle API error: '$status'\033[0m" >&2
-
             exit 1
           fi
