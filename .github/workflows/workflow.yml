@@ -105,8 +105,13 @@ jobs:
             points=1
             feedback="❌ Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
+          
+          # Prepend feedback title
+          feedback="## Linting Feedback%0A%0A$feedback"
+          # Add horizontal rule and repo link
           feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
-          echo "\033[32mFeedback: $feedback\033[0m"
+          
+          # echo "Feedback: $feedback"
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data "$assignment" \
