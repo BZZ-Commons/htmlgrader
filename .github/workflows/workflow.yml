@@ -136,10 +136,7 @@ jobs:
     needs: run-lint
     runs-on: ubuntu-latest
     steps:
-      #- name: Checkout repository
-      # uses: actions/checkout@v3
-
-      - name: Notify Classroom via Bash
+      - name: Notify Classroom
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -150,8 +147,6 @@ jobs:
           max_points=0
           total_points=0
           
-          # Example: parse outputs, adjust as needed
-          # Here we use run-lint outputs for demonstration
           max_points=2
           total_points=$( [[ "${{ needs.run-lint.outputs.result }}" == *success* ]] && echo 2 || echo 1 )
           
@@ -177,7 +172,7 @@ jobs:
           text="{\"totalPoints\":$total_points,\"maxPoints\":$max_points}"
           
           # Update the check run
-          gh api "/repos/$owner/$name/check-runs/$check_id" --method PATCH \
+          response=$(gh api "/repos/$owner/$name/check-runs/$check_id" --method PATCH \
             -f output[title]='Autograding' \
             -f output[summary]="$summary" \
             -f output[text]="$text" \
@@ -186,6 +181,6 @@ jobs:
             -F output[annotations][][end_line]=1 \
             -F output[annotations][][annotation_level]=notice \
             -F output[annotations][][message]="$summary" \
-            -F output[annotations][][title]='Autograding complete'
+            -F output[annotations][][title]='Autograding complete')
           
-          echo "✅ Bash-based Classroom notification complete."
+          echo -e "\033[32m✅ Classroom notification complete\033[0m"
