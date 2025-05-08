@@ -98,7 +98,6 @@ jobs:
           template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
           token=${{secrets.MOODLE_TOKEN2}}
-
           if [ "${{ needs.run-lint.outputs.result }}" == 'success' ]; then
             points=2
             feedback="✅ Lint erfolgreich"
@@ -106,6 +105,7 @@ jobs:
             points=1
             feedback="❌ Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
           fi
+          feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
           echo "\033[32mFeedback: $feedback\033[0m"
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
