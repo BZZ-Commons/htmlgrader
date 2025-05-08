@@ -132,3 +132,60 @@ jobs:
             echo -e "\033[31m❌ Moodle API error: '$status'\033[0m" >&2
             exit 1
           fi
+  notify-classroom:
+    needs: run-lint
+    runs-on: ubuntu-latest
+    steps:
+      #- name: Checkout repository
+      # uses: actions/checkout@v3
+
+      - name: Notify Classroom via Bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          #!/usr/bin/env bash
+          set -eo pipefail
+          
+          # Collect results from previous jobs
+          max_points=0
+          total_points=0
+          
+          # Example: parse outputs, adjust as needed
+          # Here we use run-lint outputs for demonstration
+          max_points=2
+          total_points=$( [[ "${{ needs.run-lint.outputs.result }}" == *success* ]] && echo 2 || echo 1 )
+          
+          if [[ $max_points -le 0 ]]; then
+            echo "No points to report, exiting."
+            exit 0
+          fi
+          
+          repo="${GITHUB_REPOSITORY}"
+          run_id="${GITHUB_RUN_ID}"
+          owner=$(echo "$repo" | cut -d'/' -f1)
+          name=$(echo "$repo" | cut -d'/' -f2)
+          
+          # Fetch workflow run to get check_suite_id
+          suite_url=$(gh api "/repos/$owner/$name/actions/runs/$run_id" --jq .check_suite_url)
+          suite_id=${suite_url##*/}
+          
+          # Fetch check runs and pick the first
+          check_id=$(gh api "/repos/$owner/$name/check-suites/$suite_id/check-runs" --jq .check_runs[0].id)
+          
+          # Prepare summary
+          summary="Points $total_points/$max_points"
+          text="{\"totalPoints\":$total_points,\"maxPoints\":$max_points}"
+          
+          # Update the check run
+          gh api "/repos/$owner/$name/check-runs/$check_id" --method PATCH \
+            -f output[title]='Autograding' \
+            -f output[summary]="$summary" \
+            -f output[text]="$text" \
+            -F output[annotations][][path]=.github \
+            -F output[annotations][][start_line]=1 \
+            -F output[annotations][][end_line]=1 \
+            -F output[annotations][][annotation_level]=notice \
+            -F output[annotations][][message]="$summary" \
+            -F output[annotations][][title]='Autograding complete'
+          
+          echo "✅ Bash-based Classroom notification complete."
