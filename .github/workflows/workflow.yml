@@ -103,7 +103,7 @@ jobs:
             feedback="✅ Lint erfolgreich"
           else
             points=1
-            feedback="❌ Linter meldet Fehler; siehe Tabelle:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
           fi
           
           # Prepend feedback title
