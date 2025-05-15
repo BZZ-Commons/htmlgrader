@@ -129,7 +129,7 @@ jobs:
           if [[ "$status" == *success* ]]; then
             echo -e "\033[32m✅ Moodle update successful\033[0m"
           else
-            echo -e "\033[31m❌ Moodle API error: '$status'\033[0m" >&2
+            echo -e "\033[31m❌ Moodle API error: '$response'\033[0m" >&2
             exit 1
           fi
   notify-classroom:
