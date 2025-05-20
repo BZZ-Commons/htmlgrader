@@ -123,6 +123,7 @@ jobs:
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php" \
             -d "wstoken=$token" \
             -d "wsfunction=mod_externalassignment_update_grade" \
+            -d "moodlewsrestformat=json" \
             -d "$assignment" \
             -d "$user" \
             -d "points=$points" \
@@ -134,6 +135,7 @@ jobs:
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
+          
           echo -e "==================================================="
           echo -e "API-Response: $response"
           echo -e "==================================================="
