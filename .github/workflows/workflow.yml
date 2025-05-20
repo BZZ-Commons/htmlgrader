@@ -121,6 +121,8 @@ jobs:
           # 6) Vollständiges Feedback per jq percent-encoden
           escaped_feedback=$(jq -sRr @uri <<<"$feedback")       # jq @uri filter percent-encodiert reservierte Zeichen :contentReference[oaicite:4]{index=4}
 
+          echo "Feedback: $escaped_feedback"
+          
           # 7) Curl-Aufruf mit bereits kodiertem Feedback
           response=$(curl -s -k -X POST \
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
