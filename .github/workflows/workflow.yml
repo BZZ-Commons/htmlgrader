@@ -90,53 +90,59 @@ jobs:
           name: htmlhint-report
 
       - name: Update assignment in Moodle
+        shell: bash
         run: |
+          # Moodle-User und Repo-Infos
           user="user_name=${{ github.actor }}"
-          repofull=${{ github.repository }}
+          repofull="${{ github.repository }}"
           parts=(${repofull//\// })
           reponame=${parts[1]}
           template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
           token=${{ secrets.MOODLE_TOKEN2 }}
-
+          
+          # Roh-Tabelle aus dem Linter-Output (percent-encoded newlines)
+          table="${{ needs.run-lint.outputs.table }}"
+          
           # Punkte und Feedback zusammenstellen
-          if [ "${{ needs.run-lint.outputs.result }}" == 'success' ]; then
+          if [[ "${{ needs.run-lint.outputs.result }}" == "success" ]]; then
             points=2
-            feedback="✅ Lint erfolgreich"
+            lint_msg="✅ Lint erfolgreich"
           else
             points=1
-            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
+            # %0A → \n umwandeln über printf
+            decoded_table=$(printf '%b' "${table//%0A/\\n}")
+            lint_msg="❌ Linter meldet Fehler:\n${decoded_table}"
           fi
-
-          # Überschrift und Link ergänzen
-          feedback="## Linting Feedback%0A%0A$feedback"
-          feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
-
-          # Komplettes Feedback per jq URL-encoden (escaped: >, <, &, Zeilenumbrüche etc.)
-          escaped_feedback=$(jq -sRr @uri <<<"$feedback")
-
-          # HTTP-Request an Moodle
+          
+          # Markdown-Überschrift und Link ergänzen
+          feedback="## Linting Feedback\n\n${lint_msg}\n\n---\nLink zum Repository: https://github.com/${{ github.repository }}"
+          
+          # Request an Moodle, Sonder­zeichen und Newlines werden per --data-urlencode korrekt gehandhabt
           response=$(curl -s -k -X POST \
-            "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            --data "$assignment" \
-            --data "$user" \
-            --data "points=$points" \
-            --data "feedback=$escaped_feedback" \
-            --data "max=2" \
-            --data "externallink=${{ github.repository }}")
-
+            "${{ vars.MOODLE_URL }}/webservice/rest/server.php" \
+            -d "wstoken=$token" \
+            -d "wsfunction=mod_externalassignment_update_grade" \
+            -d "$assignment" \
+            -d "$user" \
+            -d "points=$points" \
+            --data-urlencode "feedback=$feedback" \
+            -d "max=2" \
+            -d "externallink=${{ github.repository }}")
+          
           # API-Antwort auswerten
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
-
+          
           if [[ "$status" == *success* ]]; then
             echo -e "\033[32m✅ Moodle update successful\033[0m"
           else
             echo -e "\033[31m❌ Moodle API error: '$response'\033[0m" >&2
             exit 1
           fi
+  
+
   notify-classroom:
     needs: run-lint
     runs-on: ubuntu-latest
