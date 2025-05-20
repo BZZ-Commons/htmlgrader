@@ -92,60 +92,50 @@ jobs:
       - name: Update assignment in Moodle
         shell: bash
         run: |
-          # Moodle-User und Repo-Infos
+          # === 1) Basis-Infos ===
           user="user_name=${{ github.actor }}"
           repofull="${{ github.repository }}"
-          parts=(${repofull//\// })
-          reponame=${parts[1]}
+          IFS='/' read -r owner reponame <<< "$repofull"      # Split owner/repo
           template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
           token=${{ secrets.MOODLE_TOKEN2 }}
-          
-          # Roh-Tabelle aus dem Linter-Output (percent-encoded newlines)
-          table="${{ needs.run-lint.outputs.table }}"
-          
-          # Punkte und Feedback zusammenstellen
+
+          # === 2) Punkte & rohes Feedback sammeln ===
           if [[ "${{ needs.run-lint.outputs.result }}" == "success" ]]; then
             points=2
-            lint_msg="✅ Lint erfolgreich"
+            feedback="✅ Lint erfolgreich"
           else
             points=1
-            # %0A → \n umwandeln über printf
-            decoded_table=$(printf '%b' "${table//%0A/\\n}")
-            lint_msg="❌ Linter meldet Fehler:\n${decoded_table}"
+            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
           fi
-          
-          # Markdown-Überschrift und Link ergänzen
-          feedback="## Linting Feedback\n\n${lint_msg}\n\n---\nLink zum Repository: https://github.com/${{ github.repository }}"
-          
-          # Request an Moodle, Sonderzeichen und Newlines werden per --data-urlencode korrekt gehandhabt
+          # Header & Link anhängen (percent-encoded Newlines %0A bleiben)
+          feedback="## Linting Feedback%0A%0A$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
+
+          # === 3) Vorab-URI-Encoding mit jq @uri ===
+          # Wandelt alle reservierten Zeichen (|, #, %, Zeilenumbrüche u.v.m.) in %XX um
+          escaped_feedback=$(jq -sRr @uri <<<"$feedback")    # jq @uri filter :contentReference[oaicite:2]{index=2}
+
+          # === 4) Curl-Request mit bereits kodiertem feedback ===
           response=$(curl -s -k -X POST \
-            "${{ vars.MOODLE_URL }}/webservice/rest/server.php" \
-            -d "wstoken=$token" \
-            -d "wsfunction=mod_externalassignment_update_grade" \
-            -d "$assignment" \
-            -d "$user" \
-            -d "points=$points" \
-            --data-urlencode "feedback=$feedback" \
-            -d "max=2" \
-            -d "externallink=${{ github.repository }}")
-          
-          # API-Antwort auswerten
+            "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "$assignment" \
+            --data "$user" \
+            --data "points=$points" \
+            --data "feedback=$escaped_feedback" \
+            --data "max=2" \
+            --data "externallink=https://github.com/${{ github.repository }}")  # --data behält %XX bei :contentReference[oaicite:3]{index=3}
+
+          # === 5) Antwort auswerten ===
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
-          
-          echo -e "==================================================="
-          echo -e "API-Response: $response"
-          echo -e "==================================================="
-
           if [[ "$status" == *success* ]]; then
             echo -e "\033[32m✅ Moodle update successful\033[0m"
           else
             echo -e "\033[31m❌ Moodle API error: '$response'\033[0m" >&2
             exit 1
           fi
-  
 
   notify-classroom:
     needs: run-lint
