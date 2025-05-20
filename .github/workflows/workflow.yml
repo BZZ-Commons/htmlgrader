@@ -118,7 +118,7 @@ jobs:
           # Markdown-Überschrift und Link ergänzen
           feedback="## Linting Feedback\n\n${lint_msg}\n\n---\nLink zum Repository: https://github.com/${{ github.repository }}"
           
-          # Request an Moodle, Sonder­zeichen und Newlines werden per --data-urlencode korrekt gehandhabt
+          # Request an Moodle, Sonderzeichen und Newlines werden per --data-urlencode korrekt gehandhabt
           response=$(curl -s -k -X POST \
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php" \
             -d "wstoken=$token" \
@@ -134,7 +134,10 @@ jobs:
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
-          
+          echo -e "==================================================="
+          echo -e "API-Response: $response"
+          echo -e "==================================================="
+
           if [[ "$status" == *success* ]]; then
             echo -e "\033[32m✅ Moodle update successful\033[0m"
           else
