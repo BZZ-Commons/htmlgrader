@@ -97,7 +97,9 @@ jobs:
           reponame=${parts[1]}
           template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
-          token=${{secrets.MOODLE_TOKEN2}}
+          token=${{ secrets.MOODLE_TOKEN2 }}
+
+          # Punkte und Feedback zusammenstellen
           if [ "${{ needs.run-lint.outputs.result }}" == 'success' ]; then
             points=2
             feedback="✅ Lint erfolgreich"
@@ -105,23 +107,26 @@ jobs:
             points=1
             feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
           fi
-          
-          # Prepend feedback title
+
+          # Überschrift und Link ergänzen
           feedback="## Linting Feedback%0A%0A$feedback"
-          # Add horizontal rule and repo link
           feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
-          
-          # echo "Feedback: $feedback"
-          response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
+
+          # Komplettes Feedback per jq URL-encoden (escaped: >, <, &, Zeilenumbrüche etc.)
+          escaped_feedback=$(jq -sRr @uri <<<"$feedback")
+
+          # HTTP-Request an Moodle
+          response=$(curl -s -k -X POST \
+            "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             --data "$assignment" \
             --data "$user" \
             --data "points=$points" \
-            --data "feedback=$feedback" \
+            --data "feedback=$escaped_feedback" \
             --data "max=2" \
             --data "externallink=${{ github.repository }}")
-          
-          # Extract the <VALUE> within KEY name="name"
+
+          # API-Antwort auswerten
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
