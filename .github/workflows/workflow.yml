@@ -123,7 +123,7 @@ jobs:
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php" \
             -d "wstoken=$token" \
             -d "wsfunction=mod_externalassignment_update_grade" \
-            -d "moodlewsrestformat=json" \
+            #-d "moodlewsrestformat=json" \
             -d "$assignment" \
             -d "$user" \
             -d "points=$points" \
