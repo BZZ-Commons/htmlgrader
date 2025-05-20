@@ -12,8 +12,9 @@ on:
         type: string
 permissions:
   contents: read
-  actions: write   # for caching and artifact operations
-  checks: write    # for reporting status
+  actions: write
+  checks: write
+
 jobs:
   run-lint:
     runs-on: ubuntu-latest
@@ -22,16 +23,13 @@ jobs:
       result: ${{ steps.lint.outputs.lint_result }}
       table: ${{ steps.build-table.outputs.table }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '16'
 
-      - name: Cache npm download-cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.npm/_cacache
           key: ${{ runner.os }}-htmlhint-cache
@@ -48,10 +46,8 @@ jobs:
         run: |
           CONFIG_PATH=".github/linters/.htmlhintrc"
           if [ -f "$CONFIG_PATH" ]; then
-            echo "Using custom HTMLHint config at $CONFIG_PATH"
             htmlhint -c "$CONFIG_PATH" -f json "${{ inputs.html_glob }}" > lint-report.json || true
           else
-            echo "No custom config found, running default HTMLHint rules"
             htmlhint -f json "${{ inputs.html_glob }}" > lint-report.json || true
           fi
           if jq -e 'map(select(.messages|length>0)) | length > 0' lint-report.json; then
@@ -66,14 +62,11 @@ jobs:
         run: |
           echo "|Line|Rule|Message|" > feedback.md
           echo "|---|---|---|" >> feedback.md
-          # Use rule.id to avoid JSON objects and embedded quotes
           jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json >> feedback.md
-          # Percent-encode newlines
           table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
           echo "table=$table" >> $GITHUB_OUTPUT
 
-      - name: Upload HTMLHint report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: htmlhint-report
           path: lint-report.json
@@ -84,8 +77,7 @@ jobs:
     timeout-minutes: 5
     if: ${{ always() && !contains(github.actor, 'classroom') }}
     steps:
-      - name: Download HTMLHint report
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: htmlhint-report
 
@@ -100,13 +92,13 @@ jobs:
           assignment="assignment_name=$template"
           token=${{ secrets.MOODLE_TOKEN2 }}
 
-          # 2) Raw-Table mit %0A ausgeben
+          # 2) Roh-Tabelle mit %0A aus needs.run-lint.outputs.table
           raw_table="${{ needs.run-lint.outputs.table }}"
 
           # 3) %0A → echte Newlines decodieren
-          decoded_table=$(printf '%b' "${raw_table//%0A/\\n}")  # printf '%b' decodiert \n → echte Zeile:contentReference[oaicite:3]{index=3}
+          decoded_table=$(printf '%b' "${raw_table//%0A/\\n}")
 
-          # 4) Punkte & Feedback aufbauen
+          # 4) Punkte & Basis-Feedback bauen
           if [[ "${{ needs.run-lint.outputs.result }}" == "success" ]]; then
             points=2
             feedback="✅ Lint erfolgreich"
@@ -115,15 +107,13 @@ jobs:
             feedback="❌ Linter meldet Fehler:\n${decoded_table}"
           fi
 
-          # 5) Markdown-Header & Link ergänzen
+          # 5) Header & Link ergänzen
           feedback="## Linting Feedback\n\n${feedback}\n\n---\nLink zum Repository: https://github.com/${{ github.repository }}"
 
-          # 6) Vollständiges Feedback per jq percent-encoden
-          escaped_feedback=$(jq -sRr @uri <<<"$feedback")       # jq @uri filter percent-encodiert reservierte Zeichen :contentReference[oaicite:4]{index=4}
+          # 6) Vollständiges Feedback percent-encoden
+          escaped_feedback=$(jq -sRr @uri <<<"$feedback")
 
-          echo "Feedback: $escaped_feedback"
-          
-          # 7) Curl-Aufruf mit bereits kodiertem Feedback
+          # 7) Request an Moodle
           response=$(curl -s -k -X POST \
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
@@ -132,11 +122,11 @@ jobs:
             --data "points=$points" \
             --data "feedback=$escaped_feedback" \
             --data "max=2" \
-            --data "externallink=https://github.com/${{ github.repository }}")  # --data behält %XX bei :contentReference[oaicite:5]{index=5}
+            --data "externallink=https://github.com/${{ github.repository }}")
 
           # 8) Status auswerten
           status=$(echo "$response" \
-            | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
+            | sed -n 's#.*<KEY name=\"name\"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
           if [[ "$status" == *success* ]]; then
             echo -e "\033[32m✅ Moodle update successful\033[0m"
@@ -153,39 +143,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          #!/usr/bin/env bash
           set -eo pipefail
-          
-          # Collect results from previous jobs
-          max_points=0
-          total_points=0
-          
           max_points=2
-          total_points=$( [[ "${{ needs.run-lint.outputs.result }}" == *success* ]] && echo 2 || echo 1 )
-          
-          if [[ $max_points -le 0 ]]; then
-            echo "No points to report, exiting."
-            exit 0
-          fi
-          
-          repo="${GITHUB_REPOSITORY}"
-          run_id="${GITHUB_RUN_ID}"
-          owner=$(echo "$repo" | cut -d'/' -f1)
-          name=$(echo "$repo" | cut -d'/' -f2)
-          
-          # Fetch workflow run to get check_suite_id
+          total_points=$( [[ "${{ needs.run-lint.outputs.result }}" == 'success' ]] && echo 2 || echo 1 )
+          if [[ $max_points -le 0 ]]; then exit 0; fi
+          repo="${GITHUB_REPOSITORY}"; run_id="${GITHUB_RUN_ID}"
+          owner=${repo%%/*}; name=${repo#*/}
           suite_url=$(gh api "/repos/$owner/$name/actions/runs/$run_id" --jq .check_suite_url)
           suite_id=${suite_url##*/}
-          
-          # Fetch check runs and pick the first
           check_id=$(gh api "/repos/$owner/$name/check-suites/$suite_id/check-runs" --jq .check_runs[0].id)
-          
-          # Prepare summary
           summary="Points $total_points/$max_points"
           text="{\"totalPoints\":$total_points,\"maxPoints\":$max_points}"
-          
-          # Update the check run
-          response=$(gh api "/repos/$owner/$name/check-runs/$check_id" --method PATCH \
+          gh api "/repos/$owner/$name/check-runs/$check_id" --method PATCH \
             -f output[title]='Autograding' \
             -f output[summary]="$summary" \
             -f output[text]="$text" \
@@ -194,6 +163,4 @@ jobs:
             -F output[annotations][][end_line]=1 \
             -F output[annotations][][annotation_level]=notice \
             -F output[annotations][][message]="$summary" \
-            -F output[annotations][][title]='Autograding complete')
-          
-          echo -e "\033[32m✅ Classroom notification complete\033[0m"
+            -F output[annotations][][title]='Autograding complete'
