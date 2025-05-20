@@ -101,7 +101,7 @@ jobs:
           token=${{ secrets.MOODLE_TOKEN2 }}
 
           # === 2) Punkte & rohes Feedback sammeln ===
-          echo "{{ needs.run-lint.outputs.table }}"
+          echo "${{ needs.run-lint.outputs.table }}"
           if [[ "${{ needs.run-lint.outputs.result }}" == "success" ]]; then
             points=2
             feedback="✅ Lint erfolgreich"
