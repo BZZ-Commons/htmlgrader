@@ -92,31 +92,36 @@ jobs:
       - name: Update assignment in Moodle
         shell: bash
         run: |
-          # === 1) Basis-Infos ===
+          # 1) Basis-Infos
           user="user_name=${{ github.actor }}"
           repofull="${{ github.repository }}"
-          IFS='/' read -r owner reponame <<< "$repofull"      # Split owner/repo
+          IFS='/' read -r owner reponame <<< "$repofull"
           template="${reponame/"-${{ github.actor }}"/""}"
           assignment="assignment_name=$template"
           token=${{ secrets.MOODLE_TOKEN2 }}
 
-          # === 2) Punkte & rohes Feedback sammeln ===
-          echo "${{ needs.run-lint.outputs.table }}"
+          # 2) Raw-Table mit %0A ausgeben
+          raw_table="${{ needs.run-lint.outputs.table }}"
+
+          # 3) %0A → echte Newlines decodieren
+          decoded_table=$(printf '%b' "${raw_table//%0A/\\n}")  # printf '%b' decodiert \n → echte Zeile:contentReference[oaicite:3]{index=3}
+
+          # 4) Punkte & Feedback aufbauen
           if [[ "${{ needs.run-lint.outputs.result }}" == "success" ]]; then
             points=2
             feedback="✅ Lint erfolgreich"
           else
             points=1
-            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="❌ Linter meldet Fehler:\n${decoded_table}"
           fi
-          # Header & Link anhängen (percent-encoded Newlines %0A bleiben)
-          feedback="## Linting Feedback%0A%0A$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
 
-          # === 3) Vorab-URI-Encoding mit jq @uri ===
-          # Wandelt alle reservierten Zeichen (|, #, %, Zeilenumbrüche u.v.m.) in %XX um
-          escaped_feedback=$(jq -sRr @uri <<<"$feedback")    # jq @uri filter :contentReference[oaicite:2]{index=2}
+          # 5) Markdown-Header & Link ergänzen
+          feedback="## Linting Feedback\n\n${feedback}\n\n---\nLink zum Repository: https://github.com/${{ github.repository }}"
 
-          # === 4) Curl-Request mit bereits kodiertem feedback ===
+          # 6) Vollständiges Feedback per jq percent-encoden
+          escaped_feedback=$(jq -sRr @uri <<<"$feedback")       # jq @uri filter percent-encodiert reservierte Zeichen :contentReference[oaicite:4]{index=4}
+
+          # 7) Curl-Aufruf mit bereits kodiertem Feedback
           response=$(curl -s -k -X POST \
             "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
@@ -125,9 +130,9 @@ jobs:
             --data "points=$points" \
             --data "feedback=$escaped_feedback" \
             --data "max=2" \
-            --data "externallink=https://github.com/${{ github.repository }}")  # --data behält %XX bei :contentReference[oaicite:3]{index=3}
+            --data "externallink=https://github.com/${{ github.repository }}")  # --data behält %XX bei :contentReference[oaicite:5]{index=5}
 
-          # === 5) Antwort auswerten ===
+          # 8) Status auswerten
           status=$(echo "$response" \
             | sed -n 's#.*<KEY name="name"><VALUE>\(.*\)</VALUE>.*#\1#p' \
             | tr -d '\r\n')
