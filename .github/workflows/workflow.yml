@@ -64,9 +64,9 @@ jobs:
       - name: Build Markdown table of errors
         id: build-table
         run: |
-          echo "|Line|Rule|Message|" > feedback.md
-          echo "|---|---|---|" >> feedback.md
-          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
+          echo "|File|Line|Rule|Message|" > feedback.md
+          echo "|---|---|---|---|" >> feedback.md
+          jq -r '.[] | . as $file | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
           table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
           echo "table=$table" >> $GITHUB_OUTPUT
 
