@@ -66,11 +66,9 @@ jobs:
         run: |
           echo "|Line|Rule|Message|" > feedback.md
           echo "|---|---|---|" >> feedback.md
-          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json >> feedback.md
-          sed -i 's/</\%3C/g; s/>/\%3E/g' feedback.md
+          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
           table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
           echo "table=$table" >> $GITHUB_OUTPUT
-          echo $table
 
       - name: Upload HTMLHint report
         uses: actions/upload-artifact@v4
