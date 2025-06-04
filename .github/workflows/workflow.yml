@@ -67,7 +67,7 @@ jobs:
           echo "|Line|Rule|Message|" > feedback.md
           echo "|---|---|---|" >> feedback.md
           jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json >> feedback.md
-          sed -i 's/</\&lt;/g; s/>/\&gt;/g' feedback.md
+          sed -i 's/</\%3C/g; s/>/\%3E/g' feedback.md
           table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
           echo "table=$table" >> $GITHUB_OUTPUT
           echo $table
