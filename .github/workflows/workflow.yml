@@ -66,9 +66,7 @@ jobs:
         run: |
           echo "|Line|Rule|Message|" > feedback.md
           echo "|---|---|---|" >> feedback.md
-          # Use rule.id to avoid JSON objects and embedded quotes
-          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json >> feedback.md
-          # Percent-encode newlines
+          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
           table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
           echo "table=$table" >> $GITHUB_OUTPUT
 
