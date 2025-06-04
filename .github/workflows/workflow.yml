@@ -1,4 +1,3 @@
-
 name: HTMLHint Lint
 concurrency:
   group: 'htmlhint-${{ github.ref }}'
@@ -62,32 +61,14 @@ jobs:
           fi
         continue-on-error: true
 
-
-      - name: Build simple text list of errors
+      - name: Build Markdown table of errors
         id: build-table
         run: |
-          # Create structured feedback similar to Python version
-          if jq -e 'map(select(.messages|length>0)) | length > 0' lint-report.json > /dev/null; then
-            echo "## HTMLHint Results" > feedback.txt
-            echo "" >> feedback.txt
-            echo "| Line | Rule | Message |" >> feedback.txt
-            echo "| --- | --- | --- |" >> feedback.txt
-            jq -r '.[] | .messages[]? | "| \(.line) | \(.rule.id) | \(.message) |"' lint-report.json >> feedback.txt
-            echo "" >> feedback.txt
-            error_count=$(jq '[.[] | .messages[]?] | length' lint-report.json)
-            echo "**Found $error_count HTMLHint errors**" >> feedback.txt
-          else
-            echo "## HTMLHint Results" > feedback.txt
-            echo "" >> feedback.txt
-            echo "**✅ No HTMLHint errors found**" >> feedback.txt
-          fi
-          
-          # Convert to single line for GitHub output (but keep readable)
-          table=$(cat feedback.txt | tr '\n' '\n')
-          # Store the full feedback for later use
-          echo "table<<EOF" >> $GITHUB_OUTPUT
-          cat feedback.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "|Line|Rule|Message|" > feedback.md
+          echo "|---|---|---|" >> feedback.md
+          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
+          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
+          echo "table=$table" >> $GITHUB_OUTPUT
 
       - name: Upload HTMLHint report
         uses: actions/upload-artifact@v4
@@ -120,22 +101,23 @@ jobs:
             feedback="✅ Lint erfolgreich"
           else
             points=1
-            feedback="❌ Linter meldet Fehler:%0A%0A${{ needs.run-lint.outputs.table }}"
+            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
           fi
           
-          # Simple feedback without markdown formatting
-          feedback="Linting Feedback:%0A%0A$feedback"
-          feedback="$feedback%0A%0ALink zum Repository: https://github.com/${{ github.repository }}"
+          # Prepend feedback title
+          feedback="## Linting Feedback%0A%0A$feedback"
+          # Add horizontal rule and repo link
+          feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
           
-          # Use --data-urlencode like Python's urllib.parse.quote()
+          # echo "Feedback: $feedback"
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            --data-urlencode "$assignment" \
-            --data-urlencode "$user" \
-            --data-urlencode "points=$points" \
-            --data-urlencode "feedback=$feedback" \
-            --data-urlencode "max=2" \
-            --data-urlencode "externallink=${{ github.repository }}")
+            --data "$assignment" \
+            --data "$user" \
+            --data "points=$points" \
+            --data "feedback=$feedback" \
+            --data "max=2" \
+            --data "externallink=${{ github.repository }}")
           
           # Extract the <VALUE> within KEY name="name"
           status=$(echo "$response" \
