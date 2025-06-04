@@ -62,16 +62,32 @@ jobs:
           fi
         continue-on-error: true
 
+
       - name: Build simple text list of errors
         id: build-table
         run: |
-          # Create simple text format instead of markdown table
-          echo "HTMLHint Errors:" > feedback.txt
-          jq -r '.[] | .messages[]? | "Line \(.line): \(.message) (Rule: \(.rule.id))"' lint-report.json >> feedback.txt
-          # No need to escape < and > anymore - curl --data-urlencode handles it
-          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.txt)
-          echo "table=$table" >> $GITHUB_OUTPUT
-          echo $table
+          # Create structured feedback similar to Python version
+          if jq -e 'map(select(.messages|length>0)) | length > 0' lint-report.json > /dev/null; then
+            echo "## HTMLHint Results" > feedback.txt
+            echo "" >> feedback.txt
+            echo "| Line | Rule | Message |" >> feedback.txt
+            echo "| --- | --- | --- |" >> feedback.txt
+            jq -r '.[] | .messages[]? | "| \(.line) | \(.rule.id) | \(.message) |"' lint-report.json >> feedback.txt
+            echo "" >> feedback.txt
+            error_count=$(jq '[.[] | .messages[]?] | length' lint-report.json)
+            echo "**Found $error_count HTMLHint errors**" >> feedback.txt
+          else
+            echo "## HTMLHint Results" > feedback.txt
+            echo "" >> feedback.txt
+            echo "**✅ No HTMLHint errors found**" >> feedback.txt
+          fi
+          
+          # Convert to single line for GitHub output (but keep readable)
+          table=$(cat feedback.txt | tr '\n' '\n')
+          # Store the full feedback for later use
+          echo "table<<EOF" >> $GITHUB_OUTPUT
+          cat feedback.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Upload HTMLHint report
         uses: actions/upload-artifact@v4
