@@ -1,3 +1,4 @@
+
 name: HTMLHint Lint
 concurrency:
   group: 'htmlhint-${{ github.ref }}'
@@ -61,14 +62,16 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Build Markdown table of errors
+      - name: Build simple text list of errors
         id: build-table
         run: |
-          echo "|Line|Rule|Message|" > feedback.md
-          echo "|---|---|---|" >> feedback.md
-          jq -r '.[] | .messages[]? | "|\(.line)|\(.rule.id)|\(.message)|"' lint-report.json | sed 's/[<>]/(krokodil)/g' >> feedback.md
-          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.md)
+          # Create simple text format instead of markdown table
+          echo "HTMLHint Errors:" > feedback.txt
+          jq -r '.[] | .messages[]? | "Line \(.line): \(.message) (Rule: \(.rule.id))"' lint-report.json >> feedback.txt
+          # No need to escape < and > anymore - curl --data-urlencode handles it
+          table=$(sed ':a;N;s/\n/%0A/g;ta' feedback.txt)
           echo "table=$table" >> $GITHUB_OUTPUT
+          echo $table
 
       - name: Upload HTMLHint report
         uses: actions/upload-artifact@v4
@@ -101,23 +104,22 @@ jobs:
             feedback="✅ Lint erfolgreich"
           else
             points=1
-            feedback="❌ Linter meldet Fehler:%0A${{ needs.run-lint.outputs.table }}"
+            feedback="❌ Linter meldet Fehler:%0A%0A${{ needs.run-lint.outputs.table }}"
           fi
           
-          # Prepend feedback title
-          feedback="## Linting Feedback%0A%0A$feedback"
-          # Add horizontal rule and repo link
-          feedback="$feedback%0A%0A---%0ALink zum Repository: https://github.com/${{ github.repository }}"
+          # Simple feedback without markdown formatting
+          feedback="Linting Feedback:%0A%0A$feedback"
+          feedback="$feedback%0A%0ALink zum Repository: https://github.com/${{ github.repository }}"
           
-          # echo "Feedback: $feedback"
+          # Use --data-urlencode like Python's urllib.parse.quote()
           response=$(curl -s -k -X POST "${{ vars.MOODLE_URL }}/webservice/rest/server.php?wstoken=$token&wsfunction=mod_externalassignment_update_grade" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            --data "$assignment" \
-            --data "$user" \
-            --data "points=$points" \
-            --data "feedback=$feedback" \
-            --data "max=2" \
-            --data "externallink=${{ github.repository }}")
+            --data-urlencode "$assignment" \
+            --data-urlencode "$user" \
+            --data-urlencode "points=$points" \
+            --data-urlencode "feedback=$feedback" \
+            --data-urlencode "max=2" \
+            --data-urlencode "externallink=${{ github.repository }}")
           
           # Extract the <VALUE> within KEY name="name"
           status=$(echo "$response" \
